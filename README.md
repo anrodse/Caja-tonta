@@ -1,5 +1,5 @@
 # Caja-tonta
-Caja tonta 
+Caja tonta controlada por arduino
 
 Código para el control de una caja inútil, la cual solo tiene una palanca que al levantarla aparece un brazo y la cierra.
 
