@@ -1,0 +1,419 @@
+
+/**
+  * Caja tonta
+  *
+  * Incluye 2 servos, uno para la tapa y otro para
+  * la pala que tocará la palanca. Un struct, Movimiento
+  * guardará las posiciones de cada servo y el tiempo de
+  * retraso tras hacer el movimiento. Una array de este
+  * tipo, ejecutado al completo, será un movimiento de
+  * cierre de tapa.
+  *
+  *
+  * [ Antonio J. Rodríguez Segura, 11-Junio-2015 ]
+  */
+
+#include <Servo.h>
+
+/******************************************/
+/**************** Variables ***************/
+/******************************************/
+
+
+/***************** Servos *****************/
+
+#define PIN_SERVO_PUERTA 8
+#define PIN_SERVO_CIERRE 9
+#define PIN_PALANCA 7
+#define PIN_APAGADO 6
+
+Servo srvPuerta;
+Servo srvBrazo;
+
+/******* Pasos para cerrar la tapa ********/
+struct Paso {
+	int pServoTapa;
+	int pServoBrazo;
+	int retraso;
+};
+
+const int nMaxPasos = 20;
+Paso pasos[nMaxPasos];
+int nPasos = 0;
+
+/******************************************/
+/**************** Programa ****************/
+/******************************************/
+void setup() {
+	// Servos
+	srvPuerta.attach(PIN_SERVO_PUERTA);
+	srvBrazo.attach(PIN_SERVO_CIERRE);
+
+  moverServoTapa(0);
+  moverServoBrazo(0);
+
+  Serial.begin(9600);
+  Serial.println("Inicio");
+
+	// Interuptores
+	pinMode(PIN_PALANCA, INPUT);
+	pinMode(PIN_APAGADO, INPUT);
+}
+
+void loop() {
+	if (digitalRead(PIN_PALANCA) == LOW) {
+    Serial.println("Cerrando...");
+		cerrar();
+	}
+   else Serial.println("Espera...");
+   delay(250);
+}
+
+void cerrar() {
+  Serial.println(" > Establecer");
+	establecerMovimiento();
+  Serial.println(" > Mover");
+	realizarMovimiento();
+
+   delay(500);
+}
+
+
+/******** Funciones de movimiento *********/
+
+int movimiento = 0;
+int establecerMovimiento() {
+	movimiento++;
+  
+	if (movimiento==1)
+		cerrar_basicoPorPasos();
+  else if (movimiento==2)
+    cerrar_timido();
+  else if (movimiento==3)
+		cerrar_loco();
+	else if (movimiento==4)
+		cerrar_basico();
+  /*
+	else if (movimiento==5)
+		cerrar_basico();
+	else if (movimiento==6)
+		cerrar_basico();
+	else if (movimiento==7)
+		cerrar_basico();
+	*/
+	else {
+		cerrar_directo();
+		movimiento = 0;
+	}
+}
+
+void realizarMovimiento() {
+	for (int i=0; i<nPasos; i++) {
+		moverServoTapa(pasos[i].pServoTapa);
+		moverServoBrazo(pasos[i].pServoBrazo);
+
+		delay(pasos[i].retraso);
+    Serial.print("Mov ");
+    Serial.print(i);
+    Serial.print(": delay(");
+    Serial.print(pasos[i].retraso);
+    Serial.println(")");
+	}
+}
+
+/********** Movimiento de servos **********/
+void moverServoTapa(int porcentaje) {
+	porcentaje = max(0,min(100,porcentaje));
+	int v = map(porcentaje,0,100,10,150); // Map a grados
+
+	srvPuerta.write(v);
+}
+
+void moverServoBrazo(int porcentaje){
+	// Abrir tapa para dejar salir la patita
+	if (porcentaje > 100) moverServoTapa(100);
+
+  porcentaje = 100-porcentaje;
+
+	porcentaje = max(0,min(100,porcentaje));
+	int v = map(porcentaje,0,100,1,165); // Map a grados
+
+	srvBrazo.write(v);
+}
+
+
+/******************************************/
+/************** Movimientos ***************/
+/******************************************/
+
+
+/* Simplemente, abre la tapa, pulsa la palanca y
+ vuelve, sin esperas */
+void cerrar_directo(){
+  nPasos=0;
+  
+  // Paso 1 - Abrir tapa
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 20;
+  pasos[nPasos].retraso = 200;
+  nPasos++;
+
+  // Paso 2 - Mover brazo
+  pasos[1].pServoTapa = 100;
+  pasos[1].pServoBrazo = 100;
+  pasos[1].retraso = 500;
+  nPasos++;
+
+  // Paso 3 - Recoger brazo
+  pasos[2].pServoTapa = 100;
+  pasos[2].pServoBrazo = 30;
+  pasos[2].retraso = 300;
+  nPasos++;
+
+  // Paso 4 - Finalizar
+  pasos[3].pServoTapa = 0;
+  pasos[3].pServoBrazo = 0;
+  pasos[3].retraso = 250;
+  nPasos++;
+}
+
+/* Simplemente, abre la tapa, pulsa la palanca,
+ recoge el brazo y cierra la tapa */
+void cerrar_basico(){
+  nPasos=0;
+
+	// Paso 1 - Abrir tapa y mover brazo
+	pasos[nPasos].pServoTapa = 60;
+	pasos[nPasos].pServoBrazo = 20;
+	pasos[nPasos].retraso = 200;
+  nPasos++;
+
+	// Paso 2 - Abrir tapa y mover brazo mas
+	pasos[nPasos].pServoTapa = 80;
+	pasos[nPasos].pServoBrazo = 50;
+	pasos[nPasos].retraso = 200;
+  nPasos++;
+
+	// Paso 3 - Abrir completo y pulsar
+	pasos[nPasos].pServoTapa = 100;
+	pasos[nPasos].pServoBrazo = 100;
+	pasos[nPasos].retraso = 200;
+  nPasos++;
+
+	// Paso 4 - Recoger brazo y cerrar tapa
+	pasos[nPasos].pServoTapa = 20;
+	pasos[nPasos].pServoBrazo = 60;
+	pasos[nPasos].retraso = 200;
+  nPasos++;
+
+	// Paso 5 - Finalizar
+	pasos[nPasos].pServoTapa = 0;
+	pasos[nPasos].pServoBrazo = 0;
+	pasos[nPasos].retraso = 10;
+  nPasos++;
+
+}
+
+/* Paso a paso */
+void cerrar_basicoPorPasos(){
+  nPasos = 0;
+	// Paso 1 - Abrir tapa
+	pasos[nPasos].pServoTapa = 100;
+	pasos[nPasos].pServoBrazo = 5;
+	pasos[nPasos].retraso = 100;
+  nPasos++;
+
+	// Paso 2 - Pulsar
+	pasos[nPasos].pServoTapa = 100;
+	pasos[nPasos].pServoBrazo = 100;
+	pasos[nPasos].retraso = 100;
+  nPasos++;
+
+	// Paso 3 - Recoger
+	pasos[nPasos].pServoTapa = 100;
+	pasos[nPasos].pServoBrazo = 100;
+	pasos[nPasos].retraso = 100;
+  nPasos++;
+
+	// Paso 4 - Finalizar
+	pasos[nPasos].pServoTapa = 0;
+	pasos[nPasos].pServoBrazo = 0;
+	pasos[nPasos].retraso = 10;
+  nPasos++;
+
+}
+
+/* Alante y atras */
+void cerrar_timido(){
+  nPasos=0;
+
+  // Paso 1 - Abrir tapa
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 5;
+  pasos[nPasos].retraso = 300;
+  nPasos++;
+
+  // Paso 2 - asoma un poco
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 50;
+  pasos[nPasos].retraso = 100;
+  nPasos++;
+
+  // Paso 3 - volver
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 10;
+  pasos[nPasos].retraso = 100;
+  nPasos++;
+
+  // Paso 4 - asomar a poco
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 40;
+  pasos[nPasos].retraso = 50;
+  nPasos++;
+
+  // Paso 5 - asomar a poco 2
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 60;
+  pasos[nPasos].retraso = 50;
+  nPasos++;
+  
+  // Paso 6 - asomar a poco
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 70;
+  pasos[nPasos].retraso = 20;
+  nPasos++;
+
+  // Paso 7 - pulsar
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 100;
+  pasos[nPasos].retraso = 50;
+  nPasos++;
+
+  // Paso 8 - volver a poco
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 50;
+  pasos[nPasos].retraso = 200;
+  nPasos++;
+
+  // Paso 8 - volver a poco
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 30;
+  pasos[nPasos].retraso = 200;
+  nPasos++;
+
+  // Paso 9 - volver a poco
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 15;
+  pasos[nPasos].retraso = 200;
+  nPasos++;
+
+  // Paso 10 - Finalizar
+  pasos[nPasos].pServoTapa = 0;
+  pasos[nPasos].pServoBrazo = 0;
+  pasos[nPasos].retraso = 10;
+  nPasos++;
+
+}
+/* ¡To lok0! */
+void cerrar_loco(){
+  nPasos=0;
+  
+  // Abrir tapa
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 5;
+  pasos[nPasos].retraso = 100;
+  nPasos++;
+
+  // Cerrar tapa
+  pasos[nPasos].pServoTapa = 10;
+  pasos[nPasos].pServoBrazo = 5;
+  pasos[nPasos].retraso = 100;
+  nPasos++;
+
+  // Abrir tapa
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 5;
+  pasos[nPasos].retraso = 200;
+  nPasos++;
+
+  // Cerrar tapa
+  pasos[nPasos].pServoTapa = 10;
+  pasos[nPasos].pServoBrazo = 5;
+  pasos[nPasos].retraso = 100;
+  nPasos++;
+
+  // Abrir tapa
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 5;
+  pasos[nPasos].retraso = 50;
+  nPasos++;
+
+  // Salir un poco
+  pasos[nPasos].pServoTapa = 10;
+  pasos[nPasos].pServoBrazo = 5;
+  pasos[nPasos].retraso = 200;
+  nPasos++;
+
+  // Salir casi
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 70;
+  pasos[nPasos].retraso = 100;
+  nPasos++;
+
+  // volver
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 5;
+  pasos[nPasos].retraso = 200;
+  nPasos++;
+
+  // Salir casi
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 80;
+  pasos[nPasos].retraso = 100;
+  nPasos++;
+
+  // volver
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 10;
+  pasos[nPasos].retraso = 100;
+  nPasos++;
+
+
+  // Salir casi
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 80;
+  pasos[nPasos].retraso = 150;
+  nPasos++;
+
+  // Casi casi
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 90;
+  pasos[nPasos].retraso = 500;
+  nPasos++;
+
+  // Pulsar
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 100;
+  pasos[nPasos].retraso = 150;
+  nPasos++;
+
+  // Volver un poco
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 90;
+  pasos[nPasos].retraso = 500;
+  nPasos++;
+
+  // volver a poco
+  pasos[nPasos].pServoTapa = 100;
+  pasos[nPasos].pServoBrazo = 15;
+  pasos[nPasos].retraso = 200;
+  nPasos++;
+
+  // Finalizar
+  pasos[nPasos].pServoTapa = 0;
+  pasos[nPasos].pServoBrazo = 0;
+  pasos[nPasos].retraso = 10;
+  nPasos++;
+
+}
+
